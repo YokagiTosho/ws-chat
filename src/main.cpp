@@ -1,85 +1,106 @@
-#include <iostream>
-
 #include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
-#include <boost/asio/connect.hpp>
+#include <boost/beast/websocket.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <cstdlib>
+#include <functional>
 #include <iostream>
+#include <string>
+#include <thread>
 
+namespace beast = boost::beast;         // from <boost/beast.hpp>
+namespace http = beast::http;           // from <boost/beast/http.hpp>
+namespace websocket = beast::websocket; // from <boost/beast/websocket.hpp>
+namespace net = boost::asio;            // from <boost/asio.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
-namespace http = boost::beast::http;    // from <boost/beast/http.hpp>
 
-// Performs an HTTP GET and prints the response
-int main(int argc, char** argv)
+//------------------------------------------------------------------------------
+
+// Echoes back all received WebSocket messages
+void
+do_session(tcp::socket socket)
 {
     try
     {
-        // Check command line arguments.
-        if(argc != 4 && argc != 5)
+        // Construct the stream by moving in the socket
+        websocket::stream<tcp::socket> ws{std::move(socket)};
+
+        // Set a decorator to change the Server of the handshake
+        ws.set_option(websocket::stream_base::decorator(
+            [](websocket::response_type& res)
+            {
+                res.set(http::field::server,
+                    std::string(BOOST_BEAST_VERSION_STRING) +
+                        " websocket-server-sync");
+            }));
+
+        // Accept the websocket handshake
+        ws.accept();
+
+        for(;;)
         {
-            std::cerr <<
-                "Usage: http-client-sync <host> <port> <target> [<HTTP version: 1.0 or 1.1(default)>]\n" <<
-                "Example:\n" <<
-                "    http-client-sync www.example.com 80 /\n" <<
-                "    http-client-sync www.example.com 80 / 1.0\n";
-            return EXIT_FAILURE;
+            // This buffer will hold the incoming message
+            beast::flat_buffer buffer;
+
+            // Read a message
+            ws.read(buffer);
+
+            // Echo the message back
+            ws.text(ws.got_text());
+            ws.write(buffer.data());
         }
-        auto const host = argv[1];
-        auto const port = argv[2];
-        auto const target = argv[3];
-        int version = argc == 5 && !std::strcmp("1.0", argv[4]) ? 10 : 11;
-
-        // The io_context is required for all I/O
-        boost::asio::io_context ioc;
-
-        // These objects perform our I/O
-        tcp::resolver resolver{ioc};
-        tcp::socket socket{ioc};
-
-        // Look up the domain name
-        auto const results = resolver.resolve(host, port);
-
-        // Make the connection on the IP address we get from a lookup
-        boost::asio::connect(socket, results.begin(), results.end());
-
-        // Set up an HTTP GET request message
-        http::request<http::string_body> req{http::verb::get, target, version};
-        req.set(http::field::host, host);
-        req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
-
-        // Send the HTTP request to the remote host
-        http::write(socket, req);
-
-        // This buffer is used for reading and must be persisted
-        boost::beast::flat_buffer buffer;
-
-        // Declare a container to hold the response
-        http::response<http::dynamic_body> res;
-
-        // Receive the HTTP response
-        http::read(socket, buffer, res);
-
-        // Write the message to standard out
-        std::cout << res << std::endl;
-
-        // Gracefully close the socket
-        boost::system::error_code ec;
-        socket.shutdown(tcp::socket::shutdown_both, ec);
-
-        // not_connected happens sometimes
-        // so don't bother reporting it.
-        //
-        if(ec && ec != boost::system::errc::not_connected)
-            throw boost::system::system_error{ec};
-
-        // If we get here then the connection is closed gracefully
+    }
+    catch(beast::system_error const& se)
+    {
+        // This indicates that the session was closed
+        if(se.code() != websocket::error::closed)
+            std::cerr << "Error: " << se.code().message() << std::endl;
     }
     catch(std::exception const& e)
     {
         std::cerr << "Error: " << e.what() << std::endl;
+    }
+}
+
+//------------------------------------------------------------------------------
+
+int main(int argc, char* argv[])
+{
+    try
+    {
+        // Check command line arguments.
+        if (argc != 3)
+        {
+            std::cerr <<
+                "Usage: websocket-server-sync <address> <port>\n" <<
+                "Example:\n" <<
+                "    websocket-server-sync 0.0.0.0 8080\n";
+            return EXIT_FAILURE;
+        }
+        auto const address = net::ip::make_address(argv[1]);
+        auto const port = static_cast<unsigned short>(std::atoi(argv[2]));
+
+        // The io_context is required for all I/O
+        net::io_context ioc{1};
+
+        // The acceptor receives incoming connections
+        tcp::acceptor acceptor{ioc, {address, port}};
+        for(;;)
+        {
+            // This will receive the new connection
+            tcp::socket socket{ioc};
+
+            // Block until we get a connection
+            acceptor.accept(socket);
+
+            // Launch the session, transferring ownership of the socket
+            std::thread(
+                &do_session,
+                std::move(socket)).detach();
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
-    return EXIT_SUCCESS;
 }
