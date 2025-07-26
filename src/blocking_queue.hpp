@@ -1,3 +1,6 @@
+#ifndef __BLOCKING_QUEUE_HPP
+#define __BLOCKING_QUEUE_HPP
+
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -37,3 +40,5 @@ public:
 		return value;
 	}
 };
+
+#endif

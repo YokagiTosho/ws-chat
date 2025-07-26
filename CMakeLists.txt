@@ -8,5 +8,6 @@ find_package(Boost REQUIRED COMPONENTS system)
 
 add_executable(ws-chat
 	src/main.cpp
-	src/blocking_queue.hpp
 )
+
+target_include_directories(ws-chat PRIVATE ${CMAKE_SOURCE_DIR}/src)
