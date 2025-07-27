@@ -1,0 +1,2 @@
+- [] Make protocol well-defined between server and client
+- [] Rewrite synchronous code to asynchronous, removing 1 thread per 1 websocket connection
