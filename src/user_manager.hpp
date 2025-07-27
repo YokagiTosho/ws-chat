@@ -11,9 +11,9 @@ private:
     std::mutex mtx;
     std::unordered_map<size_t, User> m_users;
 public:
-    void erase(size_t);
-    void insert(size_t, User &&);
-    void insert(size_t, const User &);
+    bool erase(size_t);
+    bool insert(size_t, User &&);
+    bool insert(size_t, const User &);
 
     size_t size() const { return m_users.size(); }
 
@@ -25,6 +25,9 @@ public:
     { return m_users.end();  }
     auto cend() const noexcept
     { return m_users.cend(); }
+
+    // access through UserManager::get() method
+    User &operator[](const size_t id) = delete;
 };
 
 #endif
