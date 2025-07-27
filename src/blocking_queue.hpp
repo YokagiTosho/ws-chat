@@ -20,10 +20,21 @@ public:
 
 	void push(const T& value) {
 		std::unique_lock<std::mutex> lck(m_mutex);
+
 		if (m_capacity > 0) {
 			m_not_full.wait(lck, [this]{ return m_queue.size() < m_capacity; });
 		}
 		m_queue.push(value);
+		m_not_empty.notify_one();
+	}
+
+	void push(T &&value) {
+		std::unique_lock<std::mutex> lck(m_mutex);
+
+		if (m_capacity > 0) {
+			m_not_full.wait(lck, [this]{ return m_queue.size() < m_capacity; });
+		}
+		m_queue.push(std::forward<T>(value));
 		m_not_empty.notify_one();
 	}
 
