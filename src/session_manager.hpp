@@ -14,7 +14,7 @@
 class SessionManager {
 private:
     UserManager &m_users;          // thread safe users manager
-    BlockQueue<Message> &m_mqueue; // thread safe blocking queue
+    BQueue<Message> &m_mqueue; // thread safe blocking queue
     size_t m_id_counter{0};        // unique id for each user
 
     std::vector<std::thread> m_sessions;
@@ -43,7 +43,7 @@ private:
     }
 
 public:
-    SessionManager(BlockQueue<Message> &q, UserManager &users)
+    SessionManager(BQueue<Message> &q, UserManager &users)
         : m_mqueue{q}, m_users{users} { }
 
     void create_session(tcp::socket socket) {

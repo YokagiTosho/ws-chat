@@ -6,7 +6,7 @@
 #include <condition_variable>
 
 template<typename T>
-class BlockQueue {
+class BQueue {
 private:
 	std::queue<T> m_queue;
 	std::mutex m_mutex;
@@ -14,7 +14,7 @@ private:
 	std::condition_variable m_not_full;
 	size_t m_capacity;
 public:
-	BlockQueue(size_t capacity = 0)
+	BQueue(size_t capacity = 0)
 		: m_capacity(capacity)
 	{}
 
@@ -39,6 +39,11 @@ public:
 		}
 		return value;
 	}
+
+	auto size() const {
+		return m_queue.size();
+	}
+
 };
 
 #endif

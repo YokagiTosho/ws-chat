@@ -5,37 +5,28 @@
 #include "boost_includes.hpp"
 #include "session_manager.hpp"
 
-//------------------------------------------------------------------------------
-
-void
-do_session(tcp::socket socket, size_t unique_id)
-{
-}
 
 // run in separate thread, pop messages from the queue
 // and broadcast to all users
-void handle_messages(BlockQueue<Message> &message_queue, UserManager &users) {
+void handle_messages(
+        BQueue<Message> &message_queue,
+        UserManager &users)
+{
     for (;;) {
         auto msg = message_queue.pop();
-        std::cout << msg;
 
-        
-        /* TODO
         for (auto &[id, user]: users) {
             std::cout << "Sending msg to id: " << id << std::endl;
             user.send_message(msg);
         }
-        */
     }
 }
 
-//------------------------------------------------------------------------------
 
 int main(int argc, char* argv[])
 {
     try
     {
-        // Check command line arguments.
         if (argc != 3)
         {
             std::cerr <<
@@ -47,18 +38,19 @@ int main(int argc, char* argv[])
         auto const address = net::ip::make_address(argv[1]);
         auto const port = static_cast<unsigned short>(std::atoi(argv[2]));
 
-
         net::io_context ioc{1};
 
         tcp::acceptor acceptor{ioc, {address, port}};
 
 
-        BlockQueue<Message> msg_queue;
+        BQueue<Message> msg_queue;
         UserManager users;
 
         SessionManager session_manager(msg_queue, users);
 
-        std::thread(std::ref(handle_messages), std::ref(users)).detach();
+        std::thread(handle_messages,
+                std::ref(msg_queue),
+                std::ref(users)).detach();
 
         for(;;)
         {
