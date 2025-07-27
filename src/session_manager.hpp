@@ -4,6 +4,7 @@
 #include <thread>
 #include <memory>
 #include <utility>
+#include <iostream>
 
 #include "boost_includes.hpp"
 #include "message.hpp"
@@ -14,18 +15,16 @@ class SessionManager {
 private:
     UserManager &m_users;          // thread safe users manager
     BlockQueue<Message> &m_mqueue; // thread safe blocking queue
-    size_t m_id_counter{0};
+    size_t m_id_counter{0};        // unique id for each user
 
     std::vector<std::thread> m_sessions;
 
-    void do_session(std::unique_ptr<websocket::stream<tcp::socket>> ws, size_t unique_id) {
+    void do_session(User user) {
         try
         {
             for(;;)
             {
-                Message msg;
-                msg.read_message(*ws);
-
+                auto msg = user.receive_message();
                 m_mqueue.push(std::move(msg));
             }
         }
@@ -40,14 +39,15 @@ private:
             std::cerr << "Error: " << e.what() << std::endl;
         }
 
-        m_users.erase(unique_id);
+        m_users.erase(user.id());
     }
+
 public:
     SessionManager(BlockQueue<Message> &q, UserManager &users)
         : m_mqueue{q}, m_users{users} { }
 
     void create_session(tcp::socket socket) {
-        auto ws = std::make_shared<websocket::stream<tcp::socket>>(std::move(socket));
+        auto ws = std::make_unique<websocket::stream<tcp::socket>>(std::move(socket));
 
         // Set a decorator to change the Server of the handshake
         ws->set_option(websocket::stream_base::decorator(
@@ -55,19 +55,21 @@ public:
                     {
                     res.set(http::field::server,
                             std::string(BOOST_BEAST_VERSION_STRING) +
-                            " websocket-server-sync");
+                            " ws-chat");
                     }));
 
         // Accept the websocket handshake
         ws->accept();
 
-        m_users.insert(m_id_counter, {ws, m_id_counter});
+        User user{std::move(ws), m_id_counter};
 
-        m_sessions.push_back(
-                std::thread(
-                    &SessionManager::do_session,
-                    std::move(ws),
-                    m_id_counter));
+        m_users.insert(m_id_counter, user);
+
+        std::thread(
+            &SessionManager::do_session,
+            this,
+            std::move(user)
+            ).detach();
 
         m_id_counter++;
     }
