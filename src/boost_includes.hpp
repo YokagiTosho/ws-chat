@@ -4,7 +4,6 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/json/src.hpp>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
