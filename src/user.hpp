@@ -11,29 +11,22 @@ private:
     std::string m_name;
     // TODO add 'join_time'
 public:
-
-    User(std::shared_ptr<websocket::stream<tcp::socket>> ws, size_t id)
-        : m_ws(ws), m_id(id), m_name("Anon")
-    {
-    }
-
-    User(std::shared_ptr<websocket::stream<tcp::socket>> ws, size_t id, std::string name)
-        : m_ws(ws), m_id(id), m_name(name)
-    {}
-
     User(const User &user)
-        : m_ws(user.m_ws), m_id(user.m_id), m_name(user.m_name)
-    {}
+        : m_ws(user.m_ws), m_id(user.m_id), m_name(user.m_name) {}
 
     User(User &&user)
-        : m_ws(std::move(user.m_ws)), m_id(user.m_id), m_name(std::move(user.m_name))
-    {}
+        : m_ws(std::move(user.m_ws)), m_id(user.m_id), m_name(std::move(user.m_name)) {}
+
+    User(std::shared_ptr<websocket::stream<tcp::socket>> ws, size_t id)
+        : m_ws(ws), m_id(id), m_name("Anon") {}
+
+    User(std::shared_ptr<websocket::stream<tcp::socket>> ws, size_t id, std::string name)
+        : m_ws(ws), m_id(id), m_name(name) {}
 
     size_t id() { return m_id; }
 
     void send_message(const Message &);
     Message receive_message();
-
 };
 
 #endif
